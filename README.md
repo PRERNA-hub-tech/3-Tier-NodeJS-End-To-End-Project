@@ -1,6 +1,6 @@
 # 3-Tier NodeJS CRUD App — DevSecOps End-to-End Project
 
-> **DevOps Shack** | @devopsshack | 2026  
+
 > Full-stack user management app deployed on AWS EKS with an Enterprise DevSecOps CI/CD pipeline using GitHub Actions.
 
 ---
@@ -297,14 +297,4 @@ Docker Compose spins up:
 | ALB Controller | 1.14.0 |
 | eksctl | 0.224.0 |
 
----
 
-## License
-
-This project is licensed under the MIT License.
-
-> **NOTE:** This application should not be used for commercial purposes by anyone other than DevOps Shack.
-
----
-
-*DevOps Shack | @devopsshack | Building DevOps education for everyone*
