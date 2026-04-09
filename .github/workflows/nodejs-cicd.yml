@@ -1,0 +1,572 @@
+name: Enterprise DevSecOps CI Pipeline
+# trigger-3
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  security-events: write
+  id-token: write
+
+env:
+  IMAGE_NAME: devopsshack/nodejs-crud-project
+
+jobs:
+  gitleaks-scan:
+    name: Gitleaks Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Run Gitleaks scan
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/repo" \
+            zricethezav/gitleaks:latest detect \
+            --source=/repo \
+            --report-format=json \
+            --report-path=/repo/gitleaks-report.json \
+            --redact \
+            --exit-code 0
+
+      - name: Upload Gitleaks report
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-report
+          path: gitleaks-report.json
+          if-no-files-found: warn
+
+  checkov-terraform:
+    name: Checkov Terraform Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Run Checkov Terraform scan
+        run: |
+          checkov -d . \
+            --framework terraform \
+            --output json > checkov-terraform-report.json || true
+
+      - name: Upload Checkov Terraform report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-terraform-report
+          path: checkov-terraform-report.json
+          if-no-files-found: warn
+
+  checkov-k8s:
+    name: Checkov Kubernetes Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Run Checkov Kubernetes scan
+        run: |
+          checkov -d . \
+            --framework kubernetes \
+            --output json > checkov-k8s-report.json || true
+
+      - name: Upload Checkov Kubernetes report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-k8s-report
+          path: checkov-k8s-report.json
+          if-no-files-found: warn
+
+  checkov-dockerfile:
+    name: Checkov Dockerfile Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Checkov
+        run: pip install checkov
+
+      - name: Run Checkov Dockerfile scan
+        run: |
+          checkov -d . \
+            --framework dockerfile \
+            --output json > checkov-dockerfile-report.json || true
+
+      - name: Upload Checkov Dockerfile report
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-dockerfile-report
+          path: checkov-dockerfile-report.json
+          if-no-files-found: warn
+
+  client-trivy-fs:
+    name: Client Trivy FS Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: Verify Trivy installation
+        run: |
+          trivy --version
+          which trivy
+
+      - name: Run Trivy FS scan on client (JSON)
+        run: |
+          trivy fs ./client \
+            --format json \
+            --output client-trivy-fs-report.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+      - name: Run Trivy FS scan on client (TABLE)
+        run: |
+          trivy fs ./client \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 > client-trivy-fs-report.txt
+
+      - name: Upload Client Trivy JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-trivy-fs-json-report
+          path: client-trivy-fs-report.json
+          if-no-files-found: warn
+
+      - name: Upload Client Trivy TABLE report
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-trivy-fs-table-report
+          path: client-trivy-fs-report.txt
+          if-no-files-found: warn
+
+  server-trivy-fs:
+    name: Server Trivy FS Scan
+    runs-on: ubuntu-latest
+    needs: gitleaks-scan
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: Verify Trivy installation
+        run: |
+          trivy --version
+          which trivy
+
+      - name: Run Trivy FS scan on server (JSON)
+        run: |
+          trivy fs ./server \
+            --format json \
+            --output server-trivy-fs-report.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+      - name: Run Trivy FS scan on server (TABLE)
+        run: |
+          trivy fs ./server \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 > server-trivy-fs-report.txt
+
+      - name: Upload Server Trivy JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-trivy-fs-json-report
+          path: server-trivy-fs-report.json
+          if-no-files-found: warn
+
+      - name: Upload Server Trivy TABLE report
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-trivy-fs-table-report
+          path: server-trivy-fs-report.txt
+          if-no-files-found: warn
+
+  client-lint:
+    name: Client Lint
+    runs-on: ubuntu-latest
+    needs:
+      - client-trivy-fs
+      - checkov-k8s
+      - checkov-dockerfile
+      - checkov-terraform
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Run client lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  server-lint:
+    name: Server Lint
+    runs-on: ubuntu-latest
+    needs:
+      - server-trivy-fs
+      - checkov-k8s
+      - checkov-dockerfile
+      - checkov-terraform
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Run server lint
+        run: npm run lint --if-present
+        continue-on-error: true
+
+  client-test:
+    name: Client Test
+    runs-on: ubuntu-latest
+    needs: client-lint
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Run client tests
+        run: npm test --if-present
+        continue-on-error: true
+
+  server-test:
+    name: Server Test
+    runs-on: ubuntu-latest
+    needs: server-lint
+
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        run: npm ci
+
+      - name: Run server tests
+        run: npm test --if-present
+        continue-on-error: true
+
+  client-build:
+    name: Client Build
+    runs-on: ubuntu-latest
+    needs: client-test
+
+    defaults:
+      run:
+        working-directory: client
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install client dependencies
+        run: npm ci
+
+      - name: Build client
+        run: npm run build --if-present
+
+      - name: Upload client build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-build
+          path: |
+            client/build
+            client/dist
+          if-no-files-found: ignore
+
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs:
+      - client-build
+      - server-test
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      full_image: ${{ steps.meta.outputs.full_image }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Set image metadata
+        id: meta
+        run: |
+          echo "image_tag=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "full_image=${IMAGE_NAME}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: docker build -t "${{ steps.meta.outputs.full_image }}" .
+
+  image-trivy-scan:
+    name: Trivy Image Scan
+    runs-on: ubuntu-latest
+    needs: docker-build
+    outputs:
+      image_tag: ${{ needs.docker-build.outputs.image_tag }}
+      full_image: ${{ needs.docker-build.outputs.full_image }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: latest
+          cache: true
+
+      - name: Verify Trivy installation
+        run: |
+          trivy --version
+          which trivy
+
+      - name: Build Docker image for scan
+        run: docker build -t "${{ needs.docker-build.outputs.full_image }}" .
+
+      - name: Run Trivy image scan (JSON)
+        run: |
+          trivy image "${{ needs.docker-build.outputs.full_image }}" \
+            --format json \
+            --output image-trivy-report.json \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0
+
+      - name: Run Trivy image scan (TABLE)
+        run: |
+          trivy image "${{ needs.docker-build.outputs.full_image }}" \
+            --format table \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 0 > image-trivy-report.txt
+
+      - name: Upload Trivy image JSON report
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-trivy-json-report
+          path: image-trivy-report.json
+          if-no-files-found: warn
+
+      - name: Upload Trivy image TABLE report
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-trivy-table-report
+          path: image-trivy-report.txt
+          if-no-files-found: warn
+
+  docker-push:
+    name: Docker Push
+    runs-on: ubuntu-latest
+    needs: image-trivy-scan
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image_tag: ${{ needs.image-trivy-scan.outputs.image_tag }}
+      full_image: ${{ needs.image-trivy-scan.outputs.full_image }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ needs.image-trivy-scan.outputs.full_image }}
+
+  update-k8s-manifest:
+    name: Update Kubernetes Deployment Manifest
+    runs-on: ubuntu-latest
+    needs: docker-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    outputs:
+      image_tag: ${{ needs.docker-push.outputs.image_tag }}
+      full_image: ${{ needs.docker-push.outputs.full_image }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update image in deployment manifest
+        run: |
+          NEW_TAG="${GITHUB_SHA}"
+          sed -i "s|\(devopsshack/nodejs-crud-project:\).*|\1${NEW_TAG}|g" k8s-manifests/app-deployment.yaml
+
+      - name: Show updated manifest
+        run: cat k8s-manifests/app-deployment.yaml
+
+      - name: Commit updated manifest
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add k8s-manifests/app-deployment.yaml
+          git diff --cached --quiet || git commit -m "ci: update deployment image to ${{ needs.docker-push.outputs.image_tag }} [skip ci]"
+          git push
+
+  deploy-to-k8s:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: update-k8s-manifest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    env:
+      AWS_REGION: ap-south-1
+      EKS_CLUSTER_NAME: my-cluster
+      K8S_NAMESPACE: project
+
+    steps:
+      - name: Checkout latest code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: main   # ← explicitly pull latest main, not the trigger SHA
+
+      - name: Configure AWS credentials from GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Generate kubeconfig for EKS
+        run: aws eks update-kubeconfig --region "${AWS_REGION}" --name "${EKS_CLUSTER_NAME}"
+
+      - name: Verify identity
+        run: |
+          aws sts get-caller-identity
+          kubectl config current-context
+
+      - name: Verify namespace access
+        run: |
+          kubectl get pods -n "${K8S_NAMESPACE}"
+          kubectl get services -n "${K8S_NAMESPACE}"
+          kubectl auth can-i create deployments -n "${K8S_NAMESPACE}"
+          kubectl auth can-i create services -n "${K8S_NAMESPACE}"
+          kubectl auth can-i create ingresses.networking.k8s.io -n "${K8S_NAMESPACE}"
+
+      - name: Deploy manifests
+        run: |
+          kubectl apply -f k8s-manifests/ -n "${K8S_NAMESPACE}"
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/nodejs-app -n "${K8S_NAMESPACE}" --timeout=180s
