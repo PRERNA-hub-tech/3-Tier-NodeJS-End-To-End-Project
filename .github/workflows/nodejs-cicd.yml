@@ -12,7 +12,7 @@ permissions:
   id-token: write
 
 env:
-  IMAGE_NAME: devopsshack/nodejs-crud-project
+  IMAGE_NAME: prernachourey3/nodejs-crud-project
 
 jobs:
   gitleaks-scan:
@@ -508,7 +508,7 @@ jobs:
       - name: Update image in deployment manifest
         run: |
           NEW_TAG="${GITHUB_SHA}"
-          sed -i "s|\(devopsshack/nodejs-crud-project:\).*|\1${NEW_TAG}|g" k8s-manifests/app-deployment.yaml
+          sed -i "s|\(prernachourey3/nodejs-crud-project:\).*|\1${NEW_TAG}|g" k8s-manifests/app-deployment.yaml
 
       - name: Show updated manifest
         run: cat k8s-manifests/app-deployment.yaml
