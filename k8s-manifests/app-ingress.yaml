@@ -12,7 +12,7 @@ metadata:
 spec:
   ingressClassName: alb
   rules:
-    - host: preracloud.in
+    - host: prernacloud.in
       http:
         paths:
           - path: /
