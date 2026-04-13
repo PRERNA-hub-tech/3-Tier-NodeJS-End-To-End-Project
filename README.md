@@ -4,6 +4,8 @@
 > Full-stack user management app deployed on AWS EKS with an Enterprise DevSecOps CI/CD pipeline using GitHub Actions.
 
 ---
+<img width="305" height="661" alt="image" src="https://github.com/user-attachments/assets/9edcfb38-f12d-4ed6-896f-18589ad5ef29" />
+
 
 ## What This Project Is
 
