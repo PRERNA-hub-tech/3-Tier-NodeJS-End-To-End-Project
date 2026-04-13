@@ -8,11 +8,11 @@ metadata:
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80},{"HTTPS":443}]'
     alb.ingress.kubernetes.io/ssl-redirect: '443'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:585593375370:certificate/d95b4427-136e-4a97-8c82-6ed84d607d73
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:ap-south-1:397234361257:certificate/b6b45183-7cfe-4322-9e95-7c957fb01af3
 spec:
   ingressClassName: alb
   rules:
-    - host: aadi-aws.in
+    - host: prernacloud.in
       http:
         paths:
           - path: /
